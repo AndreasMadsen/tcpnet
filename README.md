@@ -2,7 +2,7 @@
 
 > Create a autodiscover horizontal scaleable tcp cluster
 
-##Mad since
+##Mad science
 
 I have hacked to much vertical single OS cluster software, time for a change!
 
