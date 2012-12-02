@@ -20,6 +20,7 @@
   ],
   "dependencies": {
     "mdns": "0.0.x",
+    "async": "0.1.x",
     "node-uuid": "1.4.x"
   },
   "devDependencies": {
