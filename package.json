@@ -1,7 +1,7 @@
 {
   "name": "tcpnet",
   "description": "Create a autodiscover horizontal scaleable tcp cluster",
-  "version": "0.1.1",
+  "version": "0.1.2",
   "author": "Andreas Madsen <amwebdk@gmail.com>",
   "main": "./tcpnet.js",
   "scripts": {
