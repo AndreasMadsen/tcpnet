@@ -15,6 +15,7 @@ function Service(options, callback) {
   if (callback) self.once('listening', callback);
 
   // Collection of online sockets
+  this._services = [];
   this.connections = [];
 
   // UUID: we need a string to send and a number to compare
@@ -118,11 +119,14 @@ Service.prototype._addService = function (service) {
   // TODO: look intro IPv6 support
   var addresses = service.addresses.filter(net.isIPv4.bind(net));
 
- // Create remote connection object
+  // Create remote connection object
   var remote = {
     port: service.port,
     addresses: service.addresses
   };
+
+  // Prevent double connection
+  this._services.push(remote);
 
   // The service worker with the highest number gets the pleasure of
   // initiating the TPC connection.
@@ -147,6 +151,14 @@ Service.prototype._addService = function (service) {
   });
 };
 
+// Remove remote object from services list
+Service.prototype._removeService = function (remote) {
+    var index = this._services.indexOf(remote);
+    if (index === -1) return;
+
+    this._services.splice(index, 1);
+};
+
 Service.prototype._addSocket = function (socket, remote) {
   var self = this;
 
@@ -158,14 +170,20 @@ Service.prototype._addSocket = function (socket, remote) {
 
   // Remove socket from connection list once closed
   socket.once('close', function () {
-    var index = self.connections.indexOf(socket);
-    if (index === -1) return;
-
-    self.connections.splice(index, 1);
+    self._removeService(remote);
+    self._removeSocket(socket);
   });
 
   // Done, emit connection event
   this.emit('connection', socket);
+};
+
+// Remove socket from connections list
+Service.prototype._removeSocket = function (socket) {
+    var index = this.connections.indexOf(socket);
+    if (index === -1) return;
+
+    this.connections.splice(index, 1);
 };
 
 Service.prototype._selfAnnouncement = function (service) {
@@ -178,10 +196,10 @@ Service.prototype._existConnection = function (remote) {
 
   // If the remote object was found in connections list, then it exist
   while (i--) {
-    var socketRemote = this.connections[i].remote;
+    var serviceInfo = this._services[i];
 
-    if (matchArray(socketRemote.addresses, remote.addresses) &&
-        socketRemote.remote.port == remote.port) {
+    if (matchArray(serviceInfo.addresses, remote.addresses) &&
+        serviceInfo.port == remote.port) {
       return true;
     }
   }
@@ -213,17 +231,21 @@ Service.prototype.close = function (callback) {
   this._announce.stop();
   this._discover.stop();
 
+  async.parallel([
 
-  // Close all sockets
-  function each(socket, callback) {
-    socket.end();
-    socket.once('close', function () { callback(null); });
-  }
-  async.forEach(this.connections, each, function () {
+    // Close all sockets
+    function (done) {
+      async.forEach(self.connections.slice(0), function(socket, eachDone) {
+        socket.end();
+        socket.once('close', function () { eachDone(null); });
+      }, done);
+    },
 
     // Close connection server
-    self._server.close(function () {
-      self.emit('close');
-    });
+    function (done) {
+      self._server.close(done);
+    }
+  ], function () {
+    self.emit('close');
   });
 };
