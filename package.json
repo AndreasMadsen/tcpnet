@@ -1,0 +1,33 @@
+{
+  "name": "tcpnet",
+  "description": "Create a autodiscover horizontal scaleable tcp cluster",
+  "version": "0.1.0",
+  "author": "Andreas Madsen <amwebdk@gmail.com>",
+  "main": "./tcpnet.js",
+  "scripts": {
+    "test": "tap ./test/simple/*"
+  },
+  "repository" : {
+    "type": "git",
+    "url": "git://github.com/AndreasMadsen/tcpnet.git"
+  },
+  "keywords": [
+    "tcp",
+    "autodiscover",
+    "scale",
+    "cluster",
+    "horizontal"
+  ],
+  "dependencies": {
+    "mdns": "0.0.x",
+    "node-uuid": "1.4.x"
+  },
+  "devDependencies": {
+    "tap": "0.3.x"
+  },
+  "license": "MIT",
+  "engines": {
+    "node": "0.8",
+    "npm": "1"
+  }
+}
