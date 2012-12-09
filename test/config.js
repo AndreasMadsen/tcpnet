@@ -11,5 +11,5 @@ var create = new Array(32);
     host: '0.0.0.0', // everything
     name: 'custom-name',
     uuid: create.join('')
-  }
+  };
 };
