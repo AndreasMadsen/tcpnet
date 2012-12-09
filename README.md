@@ -1,6 +1,6 @@
 #tcpnet
 
-> Create a autodiscover horizontal scaleable tcp cluster
+> Create zero configuration horizontal tcp cluster
 
 ##Mad science
 
