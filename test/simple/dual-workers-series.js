@@ -52,8 +52,8 @@ test('remote object set on server', function (t) {
 
   // Since the services are on same mashine, they share address
   t.deepEqual(
-    serviceA.connections[0].remote.addresses,
-    serviceB.connections[0].remote.addresses
+    serviceA.connections[0].remote.addresses.sort(),
+    serviceB.connections[0].remote.addresses.sort()
   );
 
   t.end();
