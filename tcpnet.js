@@ -5,6 +5,10 @@ var mdns = require('mdns');
 var isme = require('isme');
 var events = require('events');
 var async = require('async');
+var os = require('os');
+
+var serviceHost = os.hostname() + '-' + process.pid + '-';
+var serviceCounter = 0;
 
 function Service(options, callback) {
   if (!(this instanceof Service)) return new Service(options, callback);
@@ -24,6 +28,7 @@ function Service(options, callback) {
 
   // Keeps a key and port
   this._serviceKey = mdns.tcp(options.name);
+  this._serviceName = serviceHost + (serviceCounter++);
   this._servicePort = null;
   this._serviceAddresses = null;
 
@@ -49,7 +54,11 @@ function Service(options, callback) {
       self._serviceKey,
       self._servicePort,
       {
-        txtRecord: { uuid: self._uuidString }
+        txtRecord: { uuid: self._uuidString },
+
+        // workaround for some wird bug
+        // ref: https://github.com/agnat/node_mdns/issues/51
+        name: self._serviceName
       }
     );
 
@@ -187,7 +196,7 @@ Service.prototype._removeSocket = function (socket) {
 };
 
 Service.prototype._selfAnnouncement = function (service) {
- return (service.addresses.some(isme) && service.port == this._servicePort);
+  return (service.addresses.some(isme) && service.port == this._servicePort);
 };
 
 Service.prototype._existConnection = function (remote) {
