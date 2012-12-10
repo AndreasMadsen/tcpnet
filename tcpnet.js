@@ -10,13 +10,10 @@ var os = require('os');
 var serviceHost = os.hostname() + '-' + process.pid + '-';
 var serviceCounter = 0;
 
-function Service(options, callback) {
-  if (!(this instanceof Service)) return new Service(options, callback);
+function Service(options) {
+  if (!(this instanceof Service)) return new Service(options);
 
   var self = this;
-
-  // Callback is just a listening event handler
-  if (callback) self.once('listening', callback);
 
   // Collection of online sockets
   this._services = [];
