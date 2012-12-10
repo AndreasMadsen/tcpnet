@@ -1,11 +1,12 @@
 
 var tcpnet = require('../../tcpnet.js');
-var createConfig = require('../config.js');
 var test = require('tap').test;
 var async = require('async');
 
-var serviceA = tcpnet(createConfig());
-var serviceB = tcpnet(createConfig());
+var serviceA = tcpnet('test-service');
+    serviceA.listen();
+var serviceB = tcpnet('test-service');
+    serviceB.listen();
 
 test('got connection in both services', function (t) {
 

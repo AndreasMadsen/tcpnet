@@ -1,61 +1,87 @@
 
 var net = require('net');
 var util = require('util');
-var mdns = require('mdns');
-var isme = require('isme');
 var events = require('events');
 var async = require('async');
-var os = require('os');
 
-var serviceHost = os.hostname() + '-' + process.pid + '-';
-var serviceCounter = 0;
+var mdns = require('mdns');
+var isme = require('isme');
+var gmid = require('gmid');
 
-function Service(options) {
-  if (!(this instanceof Service)) return new Service(options);
+function smallerHex(hexA, hexB) {
+  for (var i = 0, l = hexA.length; i < l; i++) {
+    if (parseInt(hexA[i], 16) > parseInt(hexB[i], 16)) {
+      return false;
+    }
+  }
 
-  var self = this;
+  return true;
+}
+
+function Service(serviceName, connectionHandler) {
+  if (!(this instanceof Service)) {
+    return new Service(serviceName, connectionHandler);
+  }
 
   // Collection of online sockets
-  this._services = [];
   this.connections = [];
 
+  // Add connection handler if given
+  if (connectionHandler) this.on('connection', connectionHandler);
+
   // UUID: we need a string to send and a number to compare
-  this._uuidNumber = parseInt(options.uuid, 16);
-  this._uuidString = options.uuid;
+  this._uuidString = gmid();
+
+  // Collection of services
+  this._services = [];
+  this._serviceBuffer = [];
 
   // Keeps a key and port
-  this._serviceKey = mdns.tcp(options.name);
-  this._serviceName = serviceHost + (serviceCounter++);
-  this._servicePort = null;
-  this._serviceAddresses = null;
-
-  // New discovered services are stored in buffer until
-  // service worker is ready
-  this._serviceBuffer = [];
+  this._key = mdns.tcp(serviceName);
+  this._address = {
+    addresses: null,
+    port: null
+  };
 
   // Keeps main objects, unfortunately the announce object
   // can't be created before the service server is online
   this._server = net.createServer();
-  this._discover = mdns.createBrowser(this._serviceKey);
+  this._discover = mdns.createBrowser(this._key);
   this._announce = null;
+}
+util.inherits(Service, events.EventEmitter);
+module.exports = Service;
+
+Service.prototype.listen = function () {
+  var self = this;
+  var args = Array.prototype.slice.call(arguments);
+
+  var callback, port, address;
+
+  // Extract callback
+  if (typeof args[args.length - 1] === 'function') {
+    callback = args.pop();
+  }
+
+  // Extract port
+  port = args.pop() || 0;
+
+  // Extract address
+  address = args.pop() || "0.0.0.0";
 
   // Start service server
-  this._server.listen(options.port, options.host);
+  this._server.listen(port, address);
 
   // Server is online
   this._server.once('listening', function () {
-    self._servicePort = self._server.address().port;
+    port = self._address.port = self._server.address().port;
 
     // Start announceing and discovering
     self._announce = mdns.createAdvertisement(
-      self._serviceKey,
-      self._servicePort,
-      {
-        txtRecord: { uuid: self._uuidString },
-
+      self._key, port, {
         // workaround for some wird bug
         // ref: https://github.com/agnat/node_mdns/issues/51
-        name: self._serviceName
+        name: self._uuidString
       }
     );
 
@@ -85,7 +111,7 @@ function Service(options) {
 
     // Use self announcement to catch broadcasted public ip
     if (self._selfAnnouncement(service)) {
-      self._serviceAddresses = service.addresses;
+      self._address.addresses = service.addresses;
 
       // Switch to online mode
       self._discover.removeListener('serviceUp', offline);
@@ -114,9 +140,7 @@ function Service(options) {
 
     self._addService(service);
   }
-}
-util.inherits(Service, events.EventEmitter);
-module.exports = Service;
+};
 
 Service.prototype._addService = function (service) {
   var self = this;
@@ -136,7 +160,7 @@ Service.prototype._addService = function (service) {
 
   // The service worker with the highest number gets the pleasure of
   // initiating the TPC connection.
-  if (this._uuidNumber <= parseInt(service.txtRecord.uuid, 16)) return;
+  if (smallerHex(this._uuidString, service.name)) return;
 
   // Don't allow multiply connection to same service worker
   if (this._existConnection(remote)) return;
@@ -146,10 +170,7 @@ Service.prototype._addService = function (service) {
   socket.once('connect', function () {
 
     // Inform remote about the service it just connected to
-    socket.write(JSON.stringify({
-      port: self._servicePort,
-      addresses: self._serviceAddresses
-    }), function () {
+    socket.write(JSON.stringify(self._address), function () {
 
       // Done, not ready to claim this a connection
       self._addSocket(socket, remote);
@@ -193,7 +214,7 @@ Service.prototype._removeSocket = function (socket) {
 };
 
 Service.prototype._selfAnnouncement = function (service) {
-  return (service.addresses.some(isme) && service.port == this._servicePort);
+  return (service.addresses.some(isme) && service.port == this._address.port);
 };
 
 Service.prototype._existConnection = function (remote) {
@@ -223,12 +244,24 @@ function matchArray(arr1, arr2) {
   }
 }
 
+
 Service.prototype.address = function () {
+  // addresses is the last property there will be set
+  if (this._address.addresses === null) {
+    return null;
+  }
+
   return this._server.address();
 };
 
 Service.prototype.close = function (callback) {
   var self = this;
+
+  // reset address info
+  this._address = {
+    port: null,
+    addresses: null
+  };
 
   // Callback is just a close event handler
   if (callback) this.once('close', callback),
@@ -247,7 +280,8 @@ Service.prototype.close = function (callback) {
       }, done);
     },
 
-    // Close connection server
+    // Close connection server, note the server.close callback
+    // won't be executed before all connected sockets are closed.
     function (done) {
       self._server.close(done);
     }

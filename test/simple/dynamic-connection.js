@@ -1,6 +1,5 @@
 
 var tcpnet = require('../../tcpnet.js');
-var createConfig = require('../config.js');
 var test = require('tap').test;
 var async = require('async');
 
@@ -22,8 +21,8 @@ function pingConnection(service, callback) {
 }
 
 test('initializing service', function (t) {
-  var A = tcpnet(createConfig());
-  A.on('connection', pingHandler);
+  var A = tcpnet('test-service', pingHandler);
+      A.listen();
 
   service.push(A);
 
@@ -34,8 +33,9 @@ test('initializing service', function (t) {
 });
 
 test('one open connection', function (t) {
-  var B = tcpnet(createConfig());
-  B.on('connection', pingHandler);
+  var B = tcpnet('test-service', pingHandler);
+      B.listen();
+
   service.push(B);
 
   var listeningEmit = false;
@@ -60,8 +60,9 @@ test('one open connection', function (t) {
 });
 
 test('two open connection', function (t) {
-  var C = tcpnet(createConfig());
-  C.on('connection', pingHandler);
+  var C = tcpnet('test-service', pingHandler);
+      C.listen();
+
   service.push(C);
 
   var listeningEmit = false;

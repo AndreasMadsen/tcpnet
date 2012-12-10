@@ -1,15 +1,16 @@
 
 var tcpnet = require('../../tcpnet.js');
-var createConfig = require('../config.js');
 var test = require('tap').test;
 var async = require('async');
 
-var serviceA = tcpnet(createConfig());
+var serviceA = tcpnet('test-service');
+    serviceA.listen();
 var serviceB = null;
 
 test('initializing service B after A is ready', function (t) {
   serviceA.once('listening', function () {
-    serviceB = tcpnet(createConfig());
+    serviceB = tcpnet('test-service');
+    serviceB.listen();
     t.end();
   });
 });
@@ -80,11 +81,11 @@ test('can perform two way communication', function (t) {
 });
 
 test('close services', function (t) {
-
   async.parallel([
     serviceA.close.bind(serviceA),
     serviceB.close.bind(serviceB)
   ], function (err) {
+
     t.equal(err, null);
     t.end();
   });
