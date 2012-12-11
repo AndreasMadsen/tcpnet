@@ -61,3 +61,25 @@ test('bad uuid string in settings', function (t) {
     t.end();
   }
 });
+
+test('bad listen port', function (t) {
+  try {
+    var service = tcpnet('valid');
+        service.listen(true, '0.0.0.0');
+  } catch (e) {
+    t.equal(e.message, 'port must be a number');
+    t.ok(e instanceof TypeError);
+    t.end();
+  }
+});
+
+test('bad listen address', function (t) {
+  try {
+    var service = tcpnet('valid');
+        service.listen(0, true);
+  } catch (e) {
+    t.equal(e.message, 'address must be a string');
+    t.ok(e instanceof TypeError);
+    t.end();
+  }
+});
