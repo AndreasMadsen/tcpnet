@@ -8,6 +8,8 @@ var mdns = require('mdns');
 var isme = require('isme');
 var gmid = require('gmid');
 
+var IS_HEX_STRING = /^[0123456789ABCDEF]+$/;
+
 function compareHex(hexA, hexB) {
   for (var i = 0, l = hexA.length; i < l; i++) {
     // if hex digits are the same nothing can be concluded
@@ -23,9 +25,44 @@ function compareHex(hexA, hexB) {
   return true;
 }
 
-function Service(serviceName, connectionHandler) {
+function isObject(value) {
+  return (typeof value === 'object' && value !== null);
+}
+
+function Service(settings, connectionHandler) {
   if (!(this instanceof Service)) {
-    return new Service(serviceName, connectionHandler);
+    return new Service(settings, connectionHandler);
+  }
+
+  // Check that settings is of correct type
+  if (typeof settings !== 'string' && !isObject(settings)) {
+    throw new TypeError('first argument must be a string or an object');
+  }
+
+  // Create settings object
+  if (typeof settings === 'string') {
+    settings = {
+      name: settings
+    };
+  }
+  if (settings.hasOwnProperty('uuid') === false) {
+    settings.uuid = gmid();
+  }
+  settings.uuid = settings.uuid.toUpperCase();
+
+  // Check that the service name property is of correct type
+  if (typeof settings.name !== 'string') {
+    throw new TypeError('service name must be a string type');
+  }
+
+  // Check that the service uuid property is of correct type
+  if (typeof settings.uuid !== 'string') {
+    throw new TypeError('service uuid must be a string type');
+  }
+
+  // Check that service uuid is a hex string
+  if (IS_HEX_STRING.test(settings.uuid) === false) {
+    throw new TypeError('service uuid must be a hex string');
   }
 
   // Collection of online sockets
@@ -34,15 +71,15 @@ function Service(serviceName, connectionHandler) {
   // Add connection handler if given
   if (connectionHandler) this.on('connection', connectionHandler);
 
-  // UUID: we need a string to send and a number to compare
-  this._uuidString = gmid();
+  // Contains unique ID and a service key (given by service name)
+  this._uuid = settings.uuid;
+  this._key = mdns.tcp(settings.name);
 
   // Collection of services
   this._services = [];
   this._serviceBuffer = [];
 
-  // Keeps a key and port
-  this._key = mdns.tcp(serviceName);
+  // Keeps addresses and port
   this._address = {
     addresses: null,
     port: null
@@ -86,7 +123,7 @@ Service.prototype.listen = function () {
       self._key, port, {
         // workaround for some wird bug
         // ref: https://github.com/agnat/node_mdns/issues/51
-        name: self._uuidString
+        name: self._uuid
       }
     );
 
@@ -165,7 +202,7 @@ Service.prototype._addService = function (service) {
 
   // The service worker with the highest number gets the pleasure of
   // initiating the TPC connection.
-  if (compareHex(this._uuidString, service.name)) return;
+  if (compareHex(this._uuid, service.name)) return;
 
   // Don't allow multiply connection to same service worker
   if (this._existConnection(remote)) return;
@@ -221,7 +258,7 @@ Service.prototype._removeSocket = function (socket) {
 Service.prototype._selfAnnouncement = function (service) {
   return (service.addresses.some(isme) &&
           service.port == this._address.port &&
-          service.name === this._uuidString);
+          service.name === this._uuid);
 };
 
 Service.prototype._existConnection = function (remote) {
