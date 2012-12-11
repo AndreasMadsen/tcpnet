@@ -48,7 +48,6 @@ function Service(settings, connectionHandler) {
   if (settings.hasOwnProperty('uuid') === false) {
     settings.uuid = gmid();
   }
-  settings.uuid = settings.uuid.toUpperCase();
 
   // Check that the service name property is of correct type
   if (typeof settings.name !== 'string') {
@@ -59,6 +58,7 @@ function Service(settings, connectionHandler) {
   if (typeof settings.uuid !== 'string') {
     throw new TypeError('service uuid must be a string type');
   }
+  settings.uuid = settings.uuid.toUpperCase();
 
   // Check that service uuid is a hex string
   if (IS_HEX_STRING.test(settings.uuid) === false) {
