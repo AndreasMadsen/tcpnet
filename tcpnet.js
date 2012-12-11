@@ -8,13 +8,18 @@ var mdns = require('mdns');
 var isme = require('isme');
 var gmid = require('gmid');
 
-function smallerHex(hexA, hexB) {
+function compareHex(hexA, hexB) {
   for (var i = 0, l = hexA.length; i < l; i++) {
-    if (parseInt(hexA[i], 16) > parseInt(hexB[i], 16)) {
-      return false;
-    }
+    // if hex digits are the same nothing can be concluded
+    if (hexA[i] === hexB[i]) continue;
+
+    // At this point the hex digits arn't the same, compare the size
+    // and return true if hexA was greater than hexB
+    return (parseInt(hexA[i], 16) > parseInt(hexB[i], 16));
   }
 
+  // If they where totally equal, something went wrong and
+  // it should be ignored, thats a `return true`.
   return true;
 }
 
@@ -160,7 +165,7 @@ Service.prototype._addService = function (service) {
 
   // The service worker with the highest number gets the pleasure of
   // initiating the TPC connection.
-  if (smallerHex(this._uuidString, service.name)) return;
+  if (compareHex(this._uuidString, service.name)) return;
 
   // Don't allow multiply connection to same service worker
   if (this._existConnection(remote)) return;
@@ -214,7 +219,9 @@ Service.prototype._removeSocket = function (socket) {
 };
 
 Service.prototype._selfAnnouncement = function (service) {
-  return (service.addresses.some(isme) && service.port == this._address.port);
+  return (service.addresses.some(isme) &&
+          service.port == this._address.port &&
+          service.name === this._uuidString);
 };
 
 Service.prototype._existConnection = function (remote) {
@@ -251,7 +258,7 @@ Service.prototype.address = function () {
     return null;
   }
 
-  return this._server.address();
+  return this._address;
 };
 
 Service.prototype.close = function (callback) {
