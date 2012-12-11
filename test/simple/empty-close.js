@@ -11,7 +11,8 @@ test('got listening event', function (t) {
     var addr = service.address();
 
     t.type(addr.port, 'number');
-    t.type(addr.address, 'string');
+    t.type(addr.addresses, 'object');
+    t.type(addr.addresses[0], 'string');
     t.end();
   });
 });
