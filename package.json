@@ -1,7 +1,7 @@
 {
   "name": "tcpnet",
   "description": "Create zero configuration horizontal tcp cluster",
-  "version": "0.1.4",
+  "version": "0.1.5",
   "author": "Andreas Madsen <amwebdk@gmail.com>",
   "main": "./tcpnet.js",
   "scripts": {
