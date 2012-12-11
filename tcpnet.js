@@ -147,15 +147,7 @@ Service.prototype.listen = function () {
 
   // Got connection start handshake
   this._server.on('connection', function (socket) {
-
-    // The first data chunk should be a JSON string, containing information
-    // about the remote service.
-    socket.once('data', function (chunk) {
-      var remote = JSON.parse(chunk.toString());
-
-      // Done, not ready to claim this a connection
-      self._addSocket(socket, remote);
-    });
+    self._perfromHandshake(socket);
   });
 
   // Used when this service is online but an announcement was made
@@ -221,12 +213,48 @@ Service.prototype._addService = function (service) {
   var socket = net.connect({ port: service.port, host: addresses[0] });
   socket.once('connect', function () {
 
-    // Inform remote about the service it just connected to
-    socket.write(JSON.stringify(self._address), function () {
+    // Handshake:
+    // Inform remote about the service it just connected to,
+    // the handshake ends with a line break (can't exist in unparsed JSON),
+    // indicating that the message ends.
+    socket.write(JSON.stringify(self._address) + "\n", function () {
 
       // Done, not ready to claim this a connection
       self._addSocket(socket, remote);
     });
+  });
+};
+
+Service.prototype._perfromHandshake = function (socket) {
+  var self = this;
+
+  var buffer = "";
+  var length = 0;
+
+  // The first data chunk should be a JSON string, containing information
+  // about the remote service.
+  socket.once('data', function removeMe(chunk) {
+    // backup the old length and update buffer
+    length = buffer.length;
+    buffer += chunk.toString();
+
+    // handshake message not ended
+    var index = buffer.indexOf('\n');
+    if (index === -1) return;
+
+    // parse handshake object
+    var remote = JSON.parse(buffer.slice(0, index));
+
+    // slice chunk buffer so the handshake object isn't a part of it
+    chunk = chunk.slice((index - length) + 1).toString();
+
+    // Done handshake
+    self._addSocket(socket, remote);
+
+    // emit remaining data chunk
+    if (chunk.length !== 0) {
+      socket.emit('data', chunk);
+    }
   });
 };
 
