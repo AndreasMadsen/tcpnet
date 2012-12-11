@@ -105,11 +105,21 @@ Service.prototype.listen = function () {
     callback = args.pop();
   }
 
+  // Extract address
+  if (args.length === 2) {
+    address = args.pop() || "0.0.0.0";
+  } else {
+    address = "0.0.0.0";
+  }
+  if (typeof address !== 'string') {
+    throw new TypeError('address must be a string');
+  }
+
   // Extract port
   port = args.pop() || 0;
-
-  // Extract address
-  address = args.pop() || "0.0.0.0";
+  if (typeof port !== 'number') {
+    throw new TypeError('port must be a number');
+  }
 
   // Start service server
   this._server.listen(port, address);
