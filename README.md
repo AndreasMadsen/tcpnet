@@ -25,13 +25,6 @@ setInterval(function () {
     socket.write('message from ' + randomId  + '\n');
   });
 }, 1000);
-
-// not really nessarry since this is a auto discovery service
-service.once('listening', function () {
-  var addr = service.address();
-  console.log('uuid:', service._uuidString);
-  console.log('opened on: ', addr.addresses, 'port:', addr.port);
-});
 ```
 
 ##License
