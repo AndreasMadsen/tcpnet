@@ -98,11 +98,11 @@ Service.prototype.listen = function () {
   var self = this;
   var args = Array.prototype.slice.call(arguments);
 
-  var callback, port, address;
+  var port, address;
 
   // Extract callback
   if (typeof args[args.length - 1] === 'function') {
-    callback = args.pop();
+    this.once('listening', args.pop());
   }
 
   // Extract address
