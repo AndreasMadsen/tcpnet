@@ -16,7 +16,14 @@
     "autodiscover",
     "scale",
     "cluster",
-    "horizontal"
+    "horizontal",
+    "nodes",
+    "network",
+    "connections",
+    "fully connected",
+    "share",
+    "state",
+    "parallel"
   ],
   "dependencies": {
     "mdns": "0.0.x",
