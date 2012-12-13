@@ -34,6 +34,8 @@ function Service(settings, connectionHandler) {
     return new Service(settings, connectionHandler);
   }
 
+  var self = this;
+
   // Check that settings is of correct type
   if (typeof settings !== 'string' && !isObject(settings)) {
     throw new TypeError('first argument must be a string or an object');
@@ -85,10 +87,18 @@ function Service(settings, connectionHandler) {
     port: null
   };
 
+  this._relayError = function (err) {
+    self.emit('error', err);
+  };
+
   // Keeps main objects, unfortunately the announce object
   // can't be created before the service server is online
   this._server = net.createServer();
+  this._server.on('error', this._relayError);
+
   this._discover = mdns.createBrowser(this._key);
+  this._discover.on('error', this._relayError);
+
   this._announce = null;
 }
 util.inherits(Service, events.EventEmitter);
@@ -126,17 +136,10 @@ Service.prototype.listen = function () {
 
   // Server is online
   this._server.once('listening', function () {
-    port = self._address.port = self._server.address().port;
+    self._address.port = self._server.address().port;
 
     // Start announceing and discovering
-    self._announce = mdns.createAdvertisement(
-      self._key, port, {
-        // workaround for some wird bug
-        // ref: https://github.com/agnat/node_mdns/issues/51
-        name: self._uuid
-      }
-    );
-
+    self._createAnnouncer();
     self._announce.start();
     self._discover.start();
 
@@ -186,6 +189,19 @@ Service.prototype.listen = function () {
   }
 };
 
+Service.prototype._createAnnouncer = function () {
+
+  this._announce = mdns.createAdvertisement(
+    this._key, this._address.port, {
+      // workaround for some wird bug
+      // ref: https://github.com/agnat/node_mdns/issues/51
+      name: this._uuid
+    }
+  );
+
+  this._announce.on('error', this._relayError);
+};
+
 Service.prototype._addService = function (service) {
   var self = this;
 
@@ -211,6 +227,11 @@ Service.prototype._addService = function (service) {
 
   // Connect to remote and start handshake
   var socket = net.connect({ port: service.port, host: addresses[0] });
+
+  // Relay errors to the service object, when handshake is done the
+  // error handler is removed.
+  socket.on('error', this._relayError);
+
   socket.once('connect', function () {
 
     // Handshake:
@@ -230,6 +251,14 @@ Service.prototype._perfromHandshake = function (socket) {
 
   var buffer = "";
   var length = 0;
+
+  // Relay errors to the service object, when handshake is done the
+  // error handler is removed.
+  socket.on('error', this._relayError);
+
+  socket.on('close', function (had_error) {
+    console.log('hallo:', had_error);
+  });
 
   // The first data chunk should be a JSON string, containing information
   // about the remote service.
@@ -280,6 +309,10 @@ Service.prototype._addSocket = function (socket, remote) {
     self._removeService(remote);
     self._removeSocket(socket);
   });
+
+  // Remove handshake error handler, its up to the user to
+  // handle errors now.
+  socket.removeListener('error', this._relayError);
 
   // Done, emit connection event
   this.emit('connection', socket);
