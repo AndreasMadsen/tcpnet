@@ -256,10 +256,6 @@ Service.prototype._perfromHandshake = function (socket) {
   // error handler is removed.
   socket.on('error', this._relayError);
 
-  socket.on('close', function (had_error) {
-    console.log('hallo:', had_error);
-  });
-
   // The first data chunk should be a JSON string, containing information
   // about the remote service.
   socket.once('data', function removeMe(chunk) {
