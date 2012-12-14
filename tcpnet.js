@@ -205,18 +205,11 @@ Service.prototype._createAnnouncer = function () {
 Service.prototype._addService = function (service) {
   var self = this;
 
-  // Get IPv4 addresses
-  // TODO: look intro IPv6 support
-  var addresses = service.addresses.filter(net.isIPv4.bind(net));
-
   // Create remote connection object
   var remote = {
     port: service.port,
-    addresses: service.addresses
+    addresses: service.addresses.sort()
   };
-
-  // Prevent double connection
-  this._services.push(remote);
 
   // The service worker with the highest number gets the pleasure of
   // initiating the TPC connection.
@@ -224,8 +217,10 @@ Service.prototype._addService = function (service) {
 
   // Don't allow multiply connection to same service worker
   if (this._existConnection(remote)) return;
+  this._services.push(remote);
 
   // Connect to remote and start handshake
+  var addresses = service.addresses.filter(net.isIPv4.bind(net));
   var socket = net.connect({ port: service.port, host: addresses[0] });
 
   // Relay errors to the service object, when handshake is done the
@@ -329,8 +324,8 @@ Service.prototype._selfAnnouncement = function (service) {
 };
 
 Service.prototype._existConnection = function (remote) {
-  var connections = this.connections;
-  var i = connections.length;
+  var services = this._services;
+  var i = services.length;
 
   // If the remote object was found in connections list, then it exist
   while (i--) {
@@ -353,6 +348,8 @@ function matchArray(arr1, arr2) {
   while (i--) {
     if (arr1[i] !== arr2[i]) return false;
   }
+
+  return true;
 }
 
 
