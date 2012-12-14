@@ -38,14 +38,8 @@ function createService(done) {
 
   // In one end the socket will appear in the tcp server
   service._server.once('connection', function (socket) {
-
-    // prevent double test for server socket relay
-    if (testSockets.indexOf(socket) !== -1) return;
-    testSockets.push(socket);
-
-    // emit fake error
-    fakeError = new Error('fake server socket error');
-    socket.emit('error', fakeError);
+    // there is no socket initializing
+    done(null, true);
   });
 
   // In one end the socket will appear as a net.connect call

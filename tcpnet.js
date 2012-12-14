@@ -1,8 +1,8 @@
 
 var net = require('net');
 var util = require('util');
-var events = require('events');
 var async = require('async');
+var events = require('events');
 
 var mdns = require('mdns');
 var isme = require('isme');
@@ -150,7 +150,11 @@ Service.prototype.listen = function () {
 
   // Got connection start handshake
   this._server.on('connection', function (socket) {
-    self._perfromHandshake(socket);
+    // Relay errors to the service object, when initializing is done the
+    // error handler is removed.
+    socket.on('error', self._relayError);
+
+    self._addSocket(socket);
   });
 
   // Used when this service is online but an announcement was made
@@ -168,7 +172,7 @@ Service.prototype.listen = function () {
       self.emit('listening');
 
       // Connect to buffered services
-      self._serviceBuffer.forEach(self._addService.bind(self));
+      self._serviceBuffer.forEach(self._createConnection.bind(self));
       self._serviceBuffer = [];
 
       return;
@@ -185,7 +189,7 @@ Service.prototype.listen = function () {
     // Skip self announcement
     if (self._selfAnnouncement(service)) return;
 
-    self._addService(service);
+    self._createConnection(service);
   }
 };
 
@@ -202,108 +206,54 @@ Service.prototype._createAnnouncer = function () {
   this._announce.on('error', this._relayError);
 };
 
-Service.prototype._addService = function (service) {
+Service.prototype._createConnection = function (service) {
   var self = this;
 
   // Create remote connection object
-  var remote = {
-    port: service.port,
-    addresses: service.addresses.sort()
-  };
+  var remote = service.name;
 
   // The service worker with the highest number gets the pleasure of
   // initiating the TPC connection.
-  if (compareHex(this._uuid, service.name)) return;
+  if (compareHex(this._uuid, remote)) return;
 
   // Don't allow multiply connection to same service worker
-  if (this._existConnection(remote)) return;
+  if (this._services.indexOf(remote) !== -1) return;
   this._services.push(remote);
 
   // Connect to remote and start handshake
   var addresses = service.addresses.filter(net.isIPv4.bind(net));
   var socket = net.connect({ port: service.port, host: addresses[0] });
 
-  // Relay errors to the service object, when handshake is done the
+  // Relay errors to the service object, when initializing is done the
   // error handler is removed.
   socket.on('error', this._relayError);
+
+  // remove the uuid safe guard once the socket is closed
+  socket.once('close', function () {
+    var index = self._services.indexOf(remote);
+    if (index === -1) return;
+    self._services.splice(index, 1);
+  });
 
   socket.once('connect', function () {
-
-    // Handshake:
-    // Inform remote about the service it just connected to,
-    // the handshake ends with a line break (can't exist in unparsed JSON),
-    // indicating that the message ends.
-    socket.write(JSON.stringify(self._address) + "\n", function () {
-
-      // Done, not ready to claim this a connection
-      self._addSocket(socket, remote);
-    });
+    self._addSocket(socket);
   });
 };
 
-Service.prototype._perfromHandshake = function (socket) {
+Service.prototype._addSocket = function (socket) {
   var self = this;
-
-  var buffer = "";
-  var length = 0;
-
-  // Relay errors to the service object, when handshake is done the
-  // error handler is removed.
-  socket.on('error', this._relayError);
-
-  // The first data chunk should be a JSON string, containing information
-  // about the remote service.
-  socket.once('data', function removeMe(chunk) {
-    // backup the old length and update buffer
-    length = buffer.length;
-    buffer += chunk.toString();
-
-    // handshake message not ended
-    var index = buffer.indexOf('\n');
-    if (index === -1) return;
-
-    // parse handshake object
-    var remote = JSON.parse(buffer.slice(0, index));
-
-    // slice chunk buffer so the handshake object isn't a part of it
-    chunk = chunk.slice((index - length) + 1).toString();
-
-    // Done handshake
-    self._addSocket(socket, remote);
-
-    // emit remaining data chunk
-    if (chunk.length !== 0) {
-      socket.emit('data', chunk);
-    }
-  });
-};
-
-// Remove remote object from services list
-Service.prototype._removeService = function (remote) {
-    var index = this._services.indexOf(remote);
-    if (index === -1) return;
-
-    this._services.splice(index, 1);
-};
-
-Service.prototype._addSocket = function (socket, remote) {
-  var self = this;
-
-  // Add remote info to socket object
-  socket.remote = remote;
 
   // Add socket to connections list now
   this.connections.push(socket);
 
   // Remove socket from connection list once closed
   socket.once('close', function () {
-    self._removeService(remote);
     self._removeSocket(socket);
   });
 
-  // Remove handshake error handler, its up to the user to
+  // Remove initializing error handler, its up to the user to
   // handle errors now.
-  socket.removeListener('error', this._relayError);
+  socket.removeListener('error', self._relayError);
 
   // Done, emit connection event
   this.emit('connection', socket);
@@ -322,36 +272,6 @@ Service.prototype._selfAnnouncement = function (service) {
           service.port == this._address.port &&
           service.name === this._uuid);
 };
-
-Service.prototype._existConnection = function (remote) {
-  var services = this._services;
-  var i = services.length;
-
-  // If the remote object was found in connections list, then it exist
-  while (i--) {
-    var serviceInfo = this._services[i];
-
-    if (matchArray(serviceInfo.addresses, remote.addresses) &&
-        serviceInfo.port == remote.port) {
-      return true;
-    }
-  }
-
-  // No matching remote object was found
-  return false;
-};
-
-function matchArray(arr1, arr2) {
-  if (arr1.length !== arr2.length) return false;
-
-  var i = arr1.length;
-  while (i--) {
-    if (arr1[i] !== arr2[i]) return false;
-  }
-
-  return true;
-}
-
 
 Service.prototype.address = function () {
   // addresses is the last property there will be set

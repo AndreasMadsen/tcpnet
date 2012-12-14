@@ -42,24 +42,6 @@ test('got connection in both services', function (t) {
   });
 });
 
-test('remote object set on server', function (t) {
-
-  // check types of properties
-  t.type(serviceA.connections[0].remote.addresses[0], 'string');
-  t.type(serviceA.connections[0].remote.port, 'number');
-
-  t.type(serviceB.connections[0].remote.addresses[0], 'string');
-  t.type(serviceB.connections[0].remote.port, 'number');
-
-  // Since the services are on same mashine, they share address
-  t.deepEqual(
-    serviceA.connections[0].remote.addresses.sort(),
-    serviceB.connections[0].remote.addresses.sort()
-  );
-
-  t.end();
-});
-
 test('can perform two way communication', function (t) {
   var socketA = serviceA.connections[0];
   var socketB = serviceB.connections[0];
