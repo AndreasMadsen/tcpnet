@@ -1,12 +1,13 @@
 
+var os = require('os');
 var net = require('net');
+var dns = require('dns');
 var util = require('util');
-var async = require('async');
-var events = require('events');
-
 var mdns = require('mdns');
 var isme = require('isme');
 var gmid = require('gmid');
+var async = require('async');
+var events = require('events');
 
 var IS_HEX_STRING = /^[0123456789ABCDEF]+$/;
 
@@ -96,9 +97,7 @@ function Service(settings, connectionHandler) {
   this._server = net.createServer();
   this._server.on('error', this._relayError);
 
-  this._discover = mdns.createBrowser(this._key);
-  this._discover.on('error', this._relayError);
-
+  this._discover = null;
   this._announce = null;
 }
 util.inherits(Service, events.EventEmitter);
@@ -131,30 +130,30 @@ Service.prototype.listen = function () {
     throw new TypeError('port must be a number');
   }
 
-  // Start service server
-  this._server.listen(port, address);
+  // Transform hostname/address to an IP address
+  dns.lookup(address, function (err, address) {
+    if (err) return self.emit('error', err);
 
-  // Server is online
-  this._server.once('listening', function () {
-    self._address.port = self._server.address().port;
+    // Start service server
+    self._server.listen(port, address);
 
-    // Start announceing and discovering
-    self._createAnnouncer();
-    self._announce.start();
-    self._discover.start();
+    // Server is online
+    self._server.once('listening', function () {
+      self._address.port = self._server.address().port;
 
-    // Listening event will be emited once an
-    // self announcement has been made, see
-    // serviceUp handler below
-  });
+      // Start announceing and discovering
+      self._startService(address);
+      self._discover.on('serviceUp', offline);
+    });
 
-  // Got connection start handshake
-  this._server.on('connection', function (socket) {
-    // Relay errors to the service object, when initializing is done the
-    // error handler is removed.
-    socket.on('error', self._relayError);
+    // Got connection start handshake
+    self._server.on('connection', function (socket) {
+      // Relay errors to the service object, when initializing is done the
+      // error handler is removed.
+      socket.on('error', self._relayError);
 
-    self._addSocket(socket);
+      self._addSocket(socket);
+    });
   });
 
   // Used when this service is online but an announcement was made
@@ -162,7 +161,7 @@ Service.prototype.listen = function () {
 
     // Use self announcement to catch broadcasted public ip
     if (self._selfAnnouncement(service)) {
-      self._address.addresses = service.addresses;
+      self._address.addresses = self._getAddresses(service);
 
       // Switch to online mode
       self._discover.removeListener('serviceUp', offline);
@@ -181,11 +180,9 @@ Service.prototype.listen = function () {
     // When offline, then store service in buffer
     self._serviceBuffer.push(service);
   }
-  this._discover.on('serviceUp', offline);
 
   // Used when this service is online
   function online(service) {
-
     // Skip self announcement
     if (self._selfAnnouncement(service)) return;
 
@@ -193,17 +190,12 @@ Service.prototype.listen = function () {
   }
 };
 
-Service.prototype._createAnnouncer = function () {
+Service.prototype._getAddresses = function (service) {
+  if (service.addresses.length === 0) {
+    return ['127.0.0.1', '::1'];
+  }
 
-  this._announce = mdns.createAdvertisement(
-    this._key, this._address.port, {
-      // workaround for some wird bug
-      // ref: https://github.com/agnat/node_mdns/issues/51
-      name: this._uuid
-    }
-  );
-
-  this._announce.on('error', this._relayError);
+  return service.addresses;
 };
 
 Service.prototype._createConnection = function (service) {
@@ -221,7 +213,7 @@ Service.prototype._createConnection = function (service) {
   this._services.push(remote);
 
   // Connect to remote and start handshake
-  var addresses = service.addresses.filter(net.isIPv4.bind(net));
+  var addresses = this._getAddresses(service).filter(net.isIPv4.bind(net));
   var socket = net.connect({ port: service.port, host: addresses[0] });
 
   // Relay errors to the service object, when initializing is done the
@@ -268,9 +260,71 @@ Service.prototype._removeSocket = function (socket) {
 };
 
 Service.prototype._selfAnnouncement = function (service) {
-  return (service.addresses.some(isme) &&
+  return (this._getAddresses(service).some(isme) &&
           service.port == this._address.port &&
           service.name === this._uuid);
+};
+
+function isIntervalAddress(address) {
+  var interfaces = os.networkInterfaces();
+  for (var name in interfaces) {
+    if (interfaces.hasOwnProperty(name) === false) continue;
+
+    var addresses = interfaces[name];
+    for (var i = 0; i < addresses.length; i++) {
+      if (addresses[i].address === address &&
+          addresses[i].internal) {
+        return true;
+      }
+    }
+  }
+
+  return false;
+}
+
+Service.prototype._startService = function (address) {
+  // TODO: swtch this out with a C call to if_nametoindex once the mdns bug
+  // is fixed.
+  // ref: https://github.com/agnat/node_mdns/issues/55
+  var index;
+  if (address === '0.0.0.0') {
+    index = 0;
+  } else if (isIntervalAddress(address)) {
+    index = -1;
+  } else {
+    this.emit('error',
+      new Error('specfic none internal addresses are not yet supported' +
+                ' try 0.0.0.0 insted'));
+    return;
+  }
+
+  this._discover = mdns.createBrowser(this._key, {
+    interfaceIndex: index
+  });
+
+  this._discover.on('error', this._relayError);
+
+  this._discover.start();
+
+  this._announce = mdns.createAdvertisement(
+    this._key, this._address.port, {
+      // workaround for some wird bug
+      // ref: https://github.com/agnat/node_mdns/issues/51
+      name: this._uuid,
+
+      interfaceIndex: index
+    }
+  );
+
+  this._announce.on('error', this._relayError);
+
+  this._announce.start();
+};
+
+// Stop announceing and discovering
+Service.prototype._stopService = function () {
+  this._announce.stop();
+  this._discover.stop();
 };
 
 Service.prototype.address = function () {
@@ -295,8 +349,7 @@ Service.prototype.close = function (callback) {
   if (callback) this.once('close', callback),
 
   // Stop announceing and discovering
-  this._announce.stop();
-  this._discover.stop();
+  this._stopService();
 
   async.parallel([
 
