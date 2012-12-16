@@ -260,6 +260,27 @@ Service.prototype._removeSocket = function (socket) {
     this.connections.splice(index, 1);
 };
 
+// returns an object containing sorted internal IPv4 and IPv6 addresses
+function getInternalAddresses() {
+  var result = {
+    IPv4: [],
+    IPv6: []
+  };
+
+  var interfaces = os.networkInterfaces();
+  for (var name in interfaces) {
+    if (interfaces.hasOwnProperty(name) === false) continue;
+
+    var addresses = interfaces[name];
+    for (var i = 0; i < addresses.length; i++) {
+      if (addresses[i].internal === false) continue;
+
+      result[ addresses[i].family ].push(addresses[i].address);
+    }
+  }
+
+  return result;
+}
 
 Service.prototype._getAddresses = function (service) {
   var addresses = {
@@ -271,8 +292,10 @@ Service.prototype._getAddresses = function (service) {
   // a necessity when listening only on localhost
   if (this._internalAllowed &&
      (service.addresses.length === 0 || service.addresses.some(isme))) {
-    addresses.IPv4.unshift('127.0.0.1');
-    addresses.IPv6.unshift('::1');
+
+    var internals = getInternalAddresses();
+    addresses.IPv4 = [].concat(addresses.IPv4, internals.IPv4);
+    addresses.IPv6 = [].concat(addresses.IPv6, internals.IPv6);
   }
 
   // the addresses is sorted in IPv4 first and IPv6 first,
