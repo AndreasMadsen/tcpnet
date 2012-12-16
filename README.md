@@ -8,6 +8,8 @@
 npm install tcpnet
 ```
 
+If the module dosn't work checkout the `node-mdns` [install instructions](https://github.com/agnat/node_mdns#installation).
+
 ## Example
 
 ```javascript
