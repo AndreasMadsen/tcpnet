@@ -141,7 +141,7 @@ service.listen(function () {
 });
 ```
 
-### service.address();
+### service.address()
 
 This method will return an object containing two properties:
 
