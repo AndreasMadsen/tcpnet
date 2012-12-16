@@ -68,6 +68,9 @@ function Service(settings, connectionHandler) {
     throw new TypeError('service uuid must be a hex string');
   }
 
+  // helps handling fast close
+  this._closed = false;
+
   // Collection of online sockets
   this.connections = [];
 
@@ -135,6 +138,7 @@ Service.prototype.listen = function () {
 
   // Transform hostname/address to an IP address
   dns.lookup(address, function (err, address) {
+    if (self._closed) return;
     if (err) return self.emit('error', err);
 
     // Start service server
@@ -142,6 +146,8 @@ Service.prototype.listen = function () {
 
     // Server is online
     self._server.once('listening', function () {
+      if (self._closed) return;
+
       self._address.port = self._server.address().port;
 
       // Start announceing and discovering
@@ -322,8 +328,8 @@ Service.prototype._startService = function (address) {
 
 // Stop announceing and discovering
 Service.prototype._stopService = function () {
-  this._announce.stop();
-  this._discover.stop();
+  if (this._announce) this._announce.stop();
+  if (this._discover) this._discover.stop();
 };
 
 Service.prototype.address = function () {
@@ -337,6 +343,8 @@ Service.prototype.address = function () {
 
 Service.prototype.close = function (callback) {
   var self = this;
+
+  this._closed = true;
 
   // reset address info
   this._address = {
@@ -363,6 +371,7 @@ Service.prototype.close = function (callback) {
     // Close connection server, note the server.close callback
     // won't be executed before all connected sockets are closed.
     function (done) {
+      if (self._server.address() === null) return done(null);
       self._server.close(done);
     }
   ], function () {

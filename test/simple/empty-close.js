@@ -24,3 +24,21 @@ test('can close without connections', function (t) {
     t.end();
   });
 });
+
+test('can close without listen', function (t) {
+  service = tcpnet('test-service');
+
+  service.close(function () {
+    t.equal(service.connections.length, 0);
+    t.end();
+  });
+});
+
+test('can close fast after listen', function (t) {
+  service = tcpnet('test-service');
+  service.listen();
+  service.close(function () {
+    t.equal(service.connections.length, 0);
+    t.end();
+  });
+});
