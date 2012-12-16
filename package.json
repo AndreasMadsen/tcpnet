@@ -1,6 +1,6 @@
 {
   "name": "tcpnet",
-  "description": "Create zero configuration horizontal tcp cluster",
+  "description": "Creates TCP connections between nodes without configuration",
   "version": "0.1.12",
   "author": "Andreas Madsen <amwebdk@gmail.com>",
   "main": "./tcpnet.js",
