@@ -27,6 +27,8 @@
   ],
   "dependencies": {
     "mdns": "1.0.x",
+    "isme": "0.3.x",
+    "gmid": "0.3.x",
     "async": "0.1.x"
   },
   "devDependencies": {
