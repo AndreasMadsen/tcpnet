@@ -1,7 +1,7 @@
 {
   "name": "tcpnet",
   "description": "Creates TCP connections between nodes without configuration",
-  "version": "0.1.12",
+  "version": "0.1.13",
   "author": "Andreas Madsen <amwebdk@gmail.com>",
   "main": "./tcpnet.js",
   "scripts": {
