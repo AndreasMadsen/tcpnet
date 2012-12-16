@@ -88,6 +88,9 @@ function Service(settings, connectionHandler) {
     port: null
   };
 
+  // do the service listen on localhost
+  this._internalAllowed = false;
+
   this._relayError = function (err) {
     self.emit('error', err);
   };
@@ -190,14 +193,6 @@ Service.prototype.listen = function () {
   }
 };
 
-Service.prototype._getAddresses = function (service) {
-  if (service.addresses.length === 0) {
-    return ['127.0.0.1', '::1'];
-  }
-
-  return service.addresses;
-};
-
 Service.prototype._createConnection = function (service) {
   var self = this;
 
@@ -213,7 +208,7 @@ Service.prototype._createConnection = function (service) {
   this._services.push(remote);
 
   // Connect to remote and start handshake
-  var addresses = this._getAddresses(service).filter(net.isIPv4.bind(net));
+  var addresses = this._getAddresses(service);
   var socket = net.connect({ port: service.port, host: addresses[0] });
 
   // Relay errors to the service object, when initializing is done the
@@ -259,37 +254,41 @@ Service.prototype._removeSocket = function (socket) {
     this.connections.splice(index, 1);
 };
 
-Service.prototype._selfAnnouncement = function (service) {
-  return (this._getAddresses(service).some(isme) &&
-          service.port == this._address.port &&
-          service.name === this._uuid);
-};
 
-function isIntervalAddress(address) {
-  var interfaces = os.networkInterfaces();
-  for (var name in interfaces) {
-    if (interfaces.hasOwnProperty(name) === false) continue;
+Service.prototype._getAddresses = function (service) {
+  var addresses = {
+    IPv4: service.addresses.filter(net.isIPv4.bind(net)),
+    IPv6: service.addresses.filter(net.isIPv6.bind(net))
+  };
 
-    var addresses = interfaces[name];
-    for (var i = 0; i < addresses.length; i++) {
-      if (addresses[i].address === address &&
-          addresses[i].internal) {
-        return true;
-      }
-    }
+  // Add localhost addresses as a connection optimization and
+  // a necessity when listening only on localhost
+  if (this._internalAllowed &&
+     (service.addresses.length === 0 || service.addresses.some(isme))) {
+    addresses.IPv4.unshift('127.0.0.1');
+    addresses.IPv6.unshift('::1');
   }
 
-  return false;
-}
+  // the addresses is sorted in IPv4 first and IPv6 first,
+  // if localhost is allowed, it will be the first item in
+  // the list.
+  return [].concat(addresses.IPv4, addresses.IPv6);
+};
+
+Service.prototype._selfAnnouncement = function (service) {
+  return (service.name === this._uuid);
+};
 
 Service.prototype._startService = function (address) {
   // TODO: swtch this out with a C call to if_nametoindex once the mdns bug
   // is fixed.
   // ref: https://github.com/agnat/node_mdns/issues/55
   var index;
-  if (address === '0.0.0.0') {
+  if (isme(address, 'any')) {
+    this._internalAllowed = true;
     index = 0;
-  } else if (isIntervalAddress(address)) {
+  } else if (isme(address, 'local')) {
+    this._internalAllowed = true;
     index = -1;
   } else {
     this.emit('error',
