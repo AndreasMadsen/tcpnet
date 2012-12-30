@@ -17,7 +17,10 @@ if (mdns.isAvahi) {
             err.message,
             'loopback address is not supported on linux-avahi platform'
           );
-          t.end();
+
+          serviceA.close(function () {
+            t.end();
+          });
         });
   });
 
