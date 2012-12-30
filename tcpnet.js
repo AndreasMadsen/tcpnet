@@ -8,8 +8,10 @@ var isme = require('isme');
 var gmid = require('gmid');
 var async = require('async');
 var events = require('events');
+var ifname = require('interface-name');
 
 var IS_HEX_STRING = /^[0123456789ABCDEF]+$/;
+var LOOPBACK_NAME = ifname('127.0.0.1');
 
 function compareHex(hexA, hexB) {
   for (var i = 0, l = hexA.length; i < l; i++) {
@@ -261,22 +263,17 @@ Service.prototype._removeSocket = function (socket) {
 };
 
 // returns an object containing sorted internal IPv4 and IPv6 addresses
-function getInternalAddresses() {
+function getLoopbackAddresses() {
   var result = {
     IPv4: [],
     IPv6: []
   };
 
   var interfaces = os.networkInterfaces();
-  for (var name in interfaces) {
-    if (interfaces.hasOwnProperty(name) === false) continue;
 
-    var addresses = interfaces[name];
-    for (var i = 0; i < addresses.length; i++) {
-      if (addresses[i].internal === false) continue;
-
-      result[ addresses[i].family ].push(addresses[i].address);
-    }
+  var addresses = interfaces[LOOPBACK_NAME];
+  for (var i = 0; i < addresses.length; i++) {
+    result[ addresses[i].family ].push(addresses[i].address);
   }
 
   return result;
@@ -290,12 +287,12 @@ Service.prototype._getAddresses = function (service) {
 
   // Add localhost addresses as a connection optimization and
   // a necessity when listening only on localhost
-  if (this._internalAllowed &&
+  if (this._loopbackAllowed &&
      (service.addresses.length === 0 || service.addresses.some(isme))) {
 
-    var internals = getInternalAddresses();
-    addresses.IPv4 = [].concat(addresses.IPv4, internals.IPv4);
-    addresses.IPv6 = [].concat(addresses.IPv6, internals.IPv6);
+    var loopback = getLoopbackAddresses();
+    addresses.IPv4 = [].concat(loopback.IPv4, addresses.IPv4);
+    addresses.IPv6 = [].concat(loopback.IPv6, addresses.IPv6);
   }
 
   // the addresses is sorted in IPv4 first and IPv6 first,
@@ -309,25 +306,32 @@ Service.prototype._selfAnnouncement = function (service) {
 };
 
 Service.prototype._startService = function (address) {
-  // TODO: swtch this out with a C call to if_nametoindex once the mdns bug
-  // is fixed.
-  // ref: https://github.com/agnat/node_mdns/issues/55
-  var index;
-  if (isme(address, 'any')) {
-    this._internalAllowed = true;
-    index = 0;
-  } else if (isme(address, 'local')) {
-    this._internalAllowed = true;
-    index = -1;
-  } else {
-    this.emit('error',
-      new Error('specfic none internal addresses are not yet supported' +
-                ' try 0.0.0.0 insted'));
-    return;
+  var networkName = ifname(address);
+  var network = networkName;
+  var isAny = isme(address, 'any');
+
+  // If it listen to loopback interface set flag
+  if (isAny || name === LOOPBACK_NAME) {
+    this._loopbackAllowed = true;
+  }
+
+  // Special case, where loopback interface is used
+  if (networkName === LOOPBACK_NAME) {
+
+    // There is a linux-avahi exception when dealling with a loopback interface
+    if (mdns.isAvahi) {
+      return this.emit('Error',
+        new Error('loopback address is not supported on linux-avahi platform'));
+    }
+
+    // Use specical key
+    network = mdns.loopbackInterface();
+  } else if (isAny) {
+    network = undefined;
   }
 
   this._discover = mdns.createBrowser(this._key, {
-    interfaceIndex: index
+    networkInterface: network
   });
 
   this._discover.on('error', this._relayError);
@@ -340,7 +344,7 @@ Service.prototype._startService = function (address) {
       // ref: https://github.com/agnat/node_mdns/issues/51
       name: this._uuid,
 
-      interfaceIndex: index
+      networkInterface: network
     }
   );
 
