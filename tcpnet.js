@@ -153,8 +153,11 @@ Service.prototype.listen = function () {
       self._address.port = self._server.address().port;
 
       // Start announceing and discovering
-      self._startService(address);
-      self._discover.on('serviceUp', offline);
+      self._startService(address, function (err) {
+        if (err) return self.emit('error', err);
+
+        self._discover.on('serviceUp', offline);
+      });
     });
 
     // Got connection start handshake
@@ -306,7 +309,7 @@ Service.prototype._selfAnnouncement = function (service) {
   return (service.name === this._uuid);
 };
 
-Service.prototype._startService = function (address) {
+Service.prototype._startService = function (address, callback) {
   var networkName = ifname(address);
   var network = networkName;
   var isAny = isme(address, 'any');
@@ -321,8 +324,9 @@ Service.prototype._startService = function (address) {
 
     // There is a linux-avahi exception when dealling with a loopback interface
     if (mdns.isAvahi) {
-      return this.emit('Error',
-        new Error('loopback address is not supported on linux-avahi platform'));
+      return callback(
+        new Error('loopback address is not supported on linux-avahi platform')
+      );
     }
 
     // Use specical key
@@ -352,6 +356,8 @@ Service.prototype._startService = function (address) {
   this._announce.on('error', this._relayError);
 
   this._announce.start();
+
+  return callback(null);
 };
 
 // Stop announceing and discovering
