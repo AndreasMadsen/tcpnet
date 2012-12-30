@@ -26,10 +26,11 @@
     "parallel"
   ],
   "dependencies": {
-    "mdns": "1.0.x",
+    "mdns": "1.1.x",
     "isme": "0.3.x",
     "gmid": "0.3.x",
-    "async": "0.1.x"
+    "async": "0.1.x",
+    "interface-name": "0.2.x"
   },
   "devDependencies": {
     "tap": "0.3.x"
