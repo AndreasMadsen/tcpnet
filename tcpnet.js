@@ -217,6 +217,7 @@ Service.prototype._createConnection = function (service) {
 
   // Connect to remote and start handshake
   var addresses = this._getAddresses(service);
+  console.log('connecting to:', addresses[0]);
   var socket = net.connect({ port: service.port, host: addresses[0] });
 
   // Relay errors to the service object, when initializing is done the
@@ -311,7 +312,7 @@ Service.prototype._startService = function (address) {
   var isAny = isme(address, 'any');
 
   // If it listen to loopback interface set flag
-  if (isAny || name === LOOPBACK_NAME) {
+  if (isAny || networkName === LOOPBACK_NAME) {
     this._loopbackAllowed = true;
   }
 
