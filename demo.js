@@ -16,7 +16,7 @@ setInterval(function () {
 }, 1000);
 
 // Pick a random port, and use all available addresses
-service.listen(0, '127.0.0.1');
+service.listen(0, '0.0.0.0');
 
 //not really nessarry since this is a auto discovery service
 service.once('listening', function () {

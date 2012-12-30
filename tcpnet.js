@@ -220,7 +220,6 @@ Service.prototype._createConnection = function (service) {
 
   // Connect to remote and start handshake
   var addresses = this._getAddresses(service);
-  console.log('connecting to:', addresses[0]);
   var socket = net.connect({ port: service.port, host: addresses[0] });
 
   // Relay errors to the service object, when initializing is done the
