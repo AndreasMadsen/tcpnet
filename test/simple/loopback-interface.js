@@ -34,11 +34,11 @@ var serviceB = tcpnet('test-service');
 
 var LOOPBACK_NAME = ifname('127.0.0.1');
 function allLoopback(info) {
-  var wrong = info.adddresses.some(function (address) {
+  var wrong = info.addresses.some(function (address) {
     ifname(address) !== LOOPBACK_NAME;
   });
 
-  return wrong;
+  return !wrong;
 }
 
 test('got connection in both services', function (t) {
@@ -71,6 +71,7 @@ test('got connection in both services', function (t) {
 test('all adddresses are loopback', function (t) {
   t.ok(allLoopback(serviceA.address()), 'all ip addresses are loopback');
   t.ok(allLoopback(serviceB.address()), 'all ip addresses are loopback');
+  t.end();
 });
 
 test('can perform two way communication', function (t) {
