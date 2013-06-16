@@ -53,8 +53,7 @@ message from 4eba8c4e76e9
 node cluster, this means that each node is aware of all other running nodes by
 a TCP connection. For the time being this is limited to a local network, that
 means you can't connect nodes across the internet, however connection nodes
-on a local network (switch or router) works perfectly. But thoughts are being
-made.
+on a local network (switch or router) works perfectly.
 
 ### service = tcpnet(settings, [connection])
 
