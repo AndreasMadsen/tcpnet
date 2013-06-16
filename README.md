@@ -79,7 +79,7 @@ options, there are given by the following paramenters:
 
 * `name` required - exactly the same as the `string` case.
 * `uuid` optional - each service instance **must** have a unique ID,
- if two service instances share the same connection they can't connect
+ if two service instances share the same `udid` they can't connect
  and may not be able to reach all other servies, with diffrent IDs.
  By default the uuid is created by the [gmid](https://github.com/AndreasMadsen/gmid)
  module. Note there are two requirements for the uuid. One, it must be a
