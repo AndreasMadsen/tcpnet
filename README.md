@@ -34,7 +34,7 @@ setInterval(function () {
 service.listen(0, '0.0.0.0');
 ```
 
-Not startup a few node.js processes with this code, and you will see this:
+Now startup a few node.js processes with this code, and you will see this:
 
 ```shell
 $node demo.js
