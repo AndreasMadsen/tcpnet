@@ -50,7 +50,7 @@ message from 4eba8c4e76e9
 ## API documentation
 
 > In more detail this is a module for creating a [fully connected](http://en.wikipedia.org/wiki/File:NetworkTopology-FullyConnected.png)
-node cluster, that means that each node is aware of all other running nodes by
+node cluster, this means that each node is aware of all other running nodes by
 a TCP connection. For the time being this is limited to a local network, that
 means you can't connect nodes across the internet, however connection nodes
 on a local network (switch or router) works perfectly. But thoughts are being
